@@ -76,7 +76,7 @@ public:
 
     } else {
       // aggiorniamo la capacità della matrice
-      update_matrix(_adj_matrix, _size);
+      update_matrix_capacity(_adj_matrix, _size);
 
       // aggiungiamo identificativo del nodo al set di valori
       update_set_capacity(_value_set, _size);
@@ -88,18 +88,45 @@ public:
     std::cout << "void add_node(...)" << std::endl;
 #endif
   }
-  /*
-   *Questo metodo aggiorna la capacità del set, contenente gli id dei nodi,  di
-   *dimensione n, a un set contenente gli stessi id, ma con dimensione n+1
+
+  bool existsNode(const T &value) const {
+    size_type index = 0;
+    while (index < _size) {
+      if (_equal(_value_set[index], value))
+        return true;
+    }
+    return false;
+#ifndef NDEBUG
+    std::cout << "bool existsNode(...)"  << std::endl;
+#endif
+  }
+
+  /**
+   * Questo metodo aumenta la capacità di value_set contenente gli
+   * identificatori dei nodi da una dimensione n a n+1.
    *
-   * */
-  void update_set_capacity(T *&value_set, size_type size) {
+   * @param value_set Un riferimento a un puntatore a un oggetto di tipo T
+   * contenente gli identificatori dei nodi.
+   *
+   * @param size La dimensione corrente del set.
+   *
+   * Precondizioni: value_set deve essere stato istanziato in precedenza
+   */
+  void update_set_capacity(T *&value_set, const size_type size) {
+    // Allocazione di memoria per un nuovo array di dimensione size + 1
     T *tmp = new T[size + 1];
+
+    // Copiamo i dati di value_set all'interno di tmp
     for (size_type i = 0; i < size; ++i) {
       tmp[i] = value_set[i];
     }
+
+    // Deallocazione della memoria occupata dall'array originale
     delete[] value_set;
     value_set = nullptr;
+
+    // Assegnazione del puntatore value_set alla memoria dinamica allocata per
+    // tmp
     value_set = tmp;
     tmp = nullptr;
 #ifndef NDEBUG
@@ -108,11 +135,15 @@ public:
   }
 
   /**
-   * Questo metodo aggiorna la dimensione della matrice _adj_matrix esistente
-   * di dimensione n, a una matrice contenente gli stessi valori
-   * di dimensione n+1
-   * */
-  void update_matrix(bool **&matrix, size_type size) {
+   * Aumenta la capacità della matrice matrix da una dimensione n a una
+   * dimesione n+1. La matrice aggiorna la dimensione mantentendo intatti i dati
+   * al suo interno
+   *
+   * @param matrix Un riferimento a un puntatore a puntatore a bool.
+   *
+   * @param size La dimensione di matrix inziale
+   */
+  void update_matrix_capacity(bool **&matrix, const size_type size) {
     bool **tmp = create_matrix(tmp, size + 1);
     fill_matrix(tmp, size + 1, false);
     copy_matrix_values(matrix, tmp, size);
@@ -133,7 +164,7 @@ public:
     che la source_matrix abbia come dimensione massima al più n-1
   */
   void copy_matrix_values(bool **source_matrix, bool **destination_matrix,
-                          size_type source_matrix_size) {
+                          const size_type source_matrix_size) {
     for (size_type i = 0; i < source_matrix_size; ++i) {
       for (size_type j = 0; j < source_matrix_size; ++j) {
         destination_matrix[i][j] = source_matrix[i][j];
@@ -144,7 +175,7 @@ public:
 #endif
   }
 
-  bool **create_matrix(bool **matrix, size_type size) {
+  bool **create_matrix(bool **matrix, const size_type size) {
     // creo le righe
     matrix = new bool *[size];
 
@@ -158,7 +189,7 @@ public:
     return matrix;
   }
 
-  void clean_matrix(bool **&matrix, size_type size) {
+  void clean_matrix(bool **&matrix, const size_type size) {
     for (size_type i = 0; i < size; ++i)
       delete[] matrix[i];
 
@@ -170,7 +201,7 @@ public:
 #endif
   }
 
-  void fill_matrix(bool **matrix, size_type size, bool value) {
+  void fill_matrix(bool **matrix, const size_type size, const bool value) {
     for (size_type i = 0; i < size; ++i) {
       for (size_type j = 0; j < size; ++j) {
         matrix[i][j] = value;
@@ -193,7 +224,7 @@ private:
   bool **_adj_matrix;
   T *_value_set;
   size_type _size;
-  Eql _equals;
+  Eql _equal;
 
   // dovremmo inserire la lista degli archi?
   // da inserire possibili funtori
