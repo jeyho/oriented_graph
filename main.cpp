@@ -8,7 +8,6 @@
 #include "oriented_graph.hpp"
 #include <iostream>
 
-
 /**
   @brief Funtore di uguaglianza tra tipi interi
 
@@ -30,16 +29,17 @@ struct equal_string {
   }
 };
 int main(int argc, char *argv[]) {
-  oriented_graph<int, equal_string> graph;
-  int value=3;
-  int value1=5;
-  int value3=6;
-  graph.add_node(value);
-  std::cout<<"creazione nodo 2"<<std::endl;
+  oriented_graph<int, equal_int> graph;
+  int value = 3;
+  int value1 = 5;
+  int value3 = 6;
+  int value4 = 7;
   graph.add_node(value1);
-  graph.add_node(value3);
-  graph.add_node(value);
-  std::cout<<"fine creazione nodo 2"<<std::endl;
-  std::cout<<graph;
+  graph.add_node(value4);
+  oriented_graph<int, equal_int> graph2(graph);
+
+  std::cout << graph << std::endl;
+  std::cout << graph2 << std::endl;
+
   return 0;
 }
