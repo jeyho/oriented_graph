@@ -68,13 +68,15 @@ public:
   oriented_graph &operator=(const oriented_graph &other) {
     if (this != &other) {
       oriented_graph tmp(other);
+      this->swap(tmp);
     }
 #ifndef NDEBUG
     std::cout << " oriented_graph &operator=(...)" << std::endl;
 #endif
+    return *this;
   }
-  void swap(oriented_graph &other) {
 
+  void swap(oriented_graph &other) {
     std::swap(this->_size, other._size);
     std::swap(this->_adj_matrix, other._adj_matrix);
     std::swap(this->_value_set, other._value_set);
@@ -106,25 +108,67 @@ public:
     std::cout << "void add_node(...)" << std::endl;
 #endif
   }
+
   void delete_node(const T &value) {
     if (!existsNode(value)) {
       throw id_node_not_exists("Error, the id node not exists inside the set");
     }
-
+    size_type index_to_delete = retrieve_index_id_node(value);
     // caso in cui abbiamo un solo elemento
     if (_size == 1) {
       clean_matrix(_adj_matrix, _size);
       clean_set(_value_set);
       _size = _size - 1;
     } else {
+
       // caso in cui abbiamo più elementi
       oriented_graph<T, Eql> tmp;
       for (size_type i = 0; i < _size; ++i) {
-        if (retrieve_index_id_node(value) != i)
+        if (index_to_delete != i)
           tmp.add_node(_value_set[i]);
       }
-      // qua dobbiamo fare assegnamento e ci siamo!
+      copy_matrix_with_different_sizes(_adj_matrix, tmp._adj_matrix, _size,
+                                       tmp._size, index_to_delete);
+
+      *this = tmp;
     }
+  }
+  void add_arc(const T &value_start, const T &value_destination) {
+    // dobbiamo gestire arco esistente e arco non esistente!
+    int index_value_start = retrieve_index_id_node(value_start);
+    int index_value_destination = retrieve_index_id_node(value_destination);
+    _adj_matrix[index_value_start][index_value_destination] = true;
+#ifndef NDEBUG
+    std::cout << "void add_arc(...)" << std::endl;
+#endif
+  }
+
+  void copy_matrix_with_different_sizes(bool **source, bool **destination,
+                                        const size_type source_size,
+                                        const size_type destination_size,
+                                        size_type index_to_delete) {
+    size_type row_destination = 0;
+    size_type colum_destination = 0;
+    for (size_type row_source = 0; row_source < source_size; ++row_source) {
+      for (size_type colum_source = 0; colum_source < source_size;
+           ++colum_source) {
+        if (row_source != index_to_delete && colum_source != index_to_delete &&
+            row_destination < destination_size &&
+            colum_destination < destination_size) {
+
+          destination[row_destination][colum_destination] =
+              source[row_source][colum_source];
+          ++colum_destination;
+        }
+      }
+      colum_destination = 0;
+      if (row_source + 1 != index_to_delete) // in questa parte gestire il caso
+                                             // in cui ci sia un nodo
+        ++row_destination;
+    }
+#ifndef NDEBUG
+    std::cout << "void copy_matrix_with_different_sizes()" << std::endl;
+#endif
   }
 
   // operatore che ritorna un elemento constante nella posizione index di
@@ -145,7 +189,7 @@ public:
    *
    * */
 
-  const int retrieve_index_id_node(const T &value) const {
+  const size_type retrieve_index_id_node(const T &value) const {
     size_type index = 0;
     while (index < _size) {
       if (_equal(_value_set[index], value))
@@ -155,6 +199,7 @@ public:
 #ifndef NDEBUG
     std::cout << "const int retrieve_index_id_node(...)" << std::endl;
 #endif
+    return index;
   }
 
   // Metodo chiesto dal prof
