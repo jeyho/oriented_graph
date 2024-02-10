@@ -38,19 +38,27 @@ int main(int argc, char *argv[]) {
   // 5 7 6 3
   graph.add_node(value1);
   graph.add_node(value4);
-  oriented_graph<int, equal_int> graph2(graph);
-  graph2.add_node(value3);
-  graph2.add_node(value);
-  graph2.add_arc(value3, value1);
-  graph2.add_arc(value1, value3);
-  graph2.add_arc(value4, value3);
-  graph2.delete_node(value1);
-  graph2.delete_node(value);
-  graph2.delete_node(value4);
-  // la delete funziona ha problemi con quelli di dimensione due ma il resto
-  // sembra andare controllare e migliorare il codice relativo alla delete, al
-  // momento funziona!
-  std::cout << graph2 << std::endl;
+  graph.add_node(value3);
+  graph.add_node(value);
+
+  graph.add_arc(value3, value1);
+  graph.add_arc(value1, value3);
+  graph.add_arc(value4, value3);
+  graph.add_arc(value3, value4);
+  graph.add_arc(value3, value3);
+
+  std::cout << graph << std::endl;
+  graph.delete_node(value1);
+
+  std::cout << graph << std::endl;
+  graph.delete_node(value);
+
+  std::cout << graph << std::endl;
+  graph.delete_node(value4);
+
+  std::cout << graph << std::endl;
+  graph.delete_node(value3);
+  std::cout << graph << std::endl;
 
   return 0;
 }

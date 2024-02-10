@@ -129,10 +129,10 @@ public:
       }
       copy_matrix_with_different_sizes(_adj_matrix, tmp._adj_matrix, _size,
                                        tmp._size, index_to_delete);
-
       *this = tmp;
     }
   }
+
   void add_arc(const T &value_start, const T &value_destination) {
     // dobbiamo gestire arco esistente e arco non esistente!
     int index_value_start = retrieve_index_id_node(value_start);
@@ -143,28 +143,57 @@ public:
 #endif
   }
 
-  void copy_matrix_with_different_sizes(bool **source, bool **destination,
+  /*
+   * la seguente funzione copia i valori dalla matrice di adiacenza di origine
+   * alla matrice di adiacenza di destinazione in seguito a una cancellazione di
+   * un nodo la cui posizione all'interno della matrice viene passato tramite
+   * index_value_to_delete. La funzione gestisce dimensioni diverse per le due
+   * matrici.
+   *
+   * @param matrix_adj_source La matrice di adiacenza di origine da cui copiare
+   * i valori.
+   *
+   * @param matrix_adj_destination La matrice di adiacenza di destinazione in
+   * cui inserire i valori copiati.
+   *
+   * @param source_size La dimensione della matrice di adiacenza di origine.
+   *
+   * @param destination_size La dimensione della matrice di adiacenza di
+   * destinazione.
+   *
+   * @param index_to_delete L'indice della riga e della colonna da eliminare
+   * dalla copia.
+   *
+   * Pre condizioni Come pre-condizione, si presume che entrambi
+   * siano già stati istanziati in precedenza Si presume che matrix_adj_source
+   * abbia dimensione n Si presume che matrix_adj_destination abbia  dimensione
+   * n-1
+   *
+   * */
+  void copy_matrix_with_different_sizes(bool **matrix_adj_source,
+                                        bool **matrix_adj_destination,
                                         const size_type source_size,
                                         const size_type destination_size,
-                                        size_type index_to_delete) {
+                                        size_type index_value_to_delete) {
     size_type row_destination = 0;
     size_type colum_destination = 0;
     for (size_type row_source = 0; row_source < source_size; ++row_source) {
       for (size_type colum_source = 0; colum_source < source_size;
            ++colum_source) {
-        if (row_source != index_to_delete && colum_source != index_to_delete &&
+        if (row_source != index_value_to_delete &&
+            colum_source != index_value_to_delete &&
             row_destination < destination_size &&
             colum_destination < destination_size) {
 
-          destination[row_destination][colum_destination] =
-              source[row_source][colum_source];
+          matrix_adj_destination[row_destination][colum_destination] =
+              matrix_adj_source[row_source][colum_source];
           ++colum_destination;
         }
       }
-      colum_destination = 0;
-      if (row_source + 1 != index_to_delete) // in questa parte gestire il caso
-                                             // in cui ci sia un nodo
+      if (colum_destination >= destination_size) {
         ++row_destination;
+        colum_destination = 0;
+      } // in questa parte gestire il caso
     }
 #ifndef NDEBUG
     std::cout << "void copy_matrix_with_different_sizes()" << std::endl;
@@ -188,7 +217,6 @@ public:
    *
    *
    * */
-
   const size_type retrieve_index_id_node(const T &value) const {
     size_type index = 0;
     while (index < _size) {
