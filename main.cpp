@@ -7,6 +7,8 @@
 // #include <cassert>
 #include "oriented_graph.hpp"
 #include <iostream>
+#include <ostream>
+#include <string>
 
 /**
   @brief Funtore di uguaglianza tra tipi interi
@@ -20,20 +22,19 @@ struct equal_int {
 /**
   @brief Funtore per l'uguaglianza tra stringhe.
 
-  Funtore per l'ugagianza tra stringhe. La valutazione e' fatta
-  lessicografica.
+  Funtore per l'ugagianza tra stringhe.
 */
 struct equal_string {
-  bool operator()(const std::string &a, const std::string &b) const {
-    return (a == b);
-  }
+  bool operator()(std::string a, std::string b) const { return (a == b); }
 };
+
 int main(int argc, char *argv[]) {
-  oriented_graph<int, equal_int> graph;
-  int value1 = 5;
-  int value4 = 7;
-  int value3 = 6;
-  int value = 3;
+  oriented_graph<std::string, equal_string> graph;
+  std::string value1 = "5";
+  std::string value4 = "7";
+  std::string value3 = "6";
+  std::string value = "3";
+  std::string valuex = "8";
 
   // 5 7 6 3
   graph.add_node(value1);
@@ -47,18 +48,23 @@ int main(int argc, char *argv[]) {
   graph.add_arc(value3, value4);
   graph.add_arc(value3, value3);
 
-  std::cout << graph << std::endl;
-  graph.delete_node(value1);
+  oriented_graph<std::string, equal_string> graph2(graph);
 
   std::cout << graph << std::endl;
-  graph.delete_node(value);
+  // std::cout << graph2 << std::endl;
 
-  std::cout << graph << std::endl;
-  graph.delete_node(value4);
+  // testiamo iteratori
+  oriented_graph<std::string, equal_string>::const_iterator it_init;
+  oriented_graph<std::string, equal_string>::const_iterator it_end;
 
-  std::cout << graph << std::endl;
-  graph.delete_node(value3);
-  std::cout << graph << std::endl;
+  it_end = graph.end();
+
+  for (it_init = graph.begin(); it_init != it_end; ++it_init)
+    std::cout << *it_init << std::endl;
+
+  it_init = graph.begin();
+  std::cout << *it_init << std::endl;
+  // std::cout<<*it_end<<std::endl;
 
   return 0;
 }

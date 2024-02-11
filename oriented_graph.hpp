@@ -8,6 +8,8 @@
 */
 #ifndef ORIENTED_GRAPH
 #define ORIENTED_GRAPH
+#include "arc_already_exists.hpp"
+#include "arc_not_exists.hpp"
 #include "id_node_already_exists.hpp"
 #include "id_node_not_exists.hpp"
 #include <algorithm>
@@ -15,6 +17,17 @@
 #include <iostream>
 #include <iterator>
 #include <strings.h>
+
+/**
+ * @brief Classe oriented_graph
+ * @param init the initial value to fill the cube with
+ * @pre (z > 0 && y > 0 && x > 0)
+ * @post cube != nullptr
+ * @throw bad_build_size custom exception throwed if pages, row, column size
+ * is <= 0
+ * @throw std::exception possible exception coming from generic type T
+ * @throw std::bad_alloc possible allocation error coming from new[]
+ */
 
 template <typename T, typename Eql> class oriented_graph {
 public:
@@ -80,6 +93,7 @@ public:
     std::swap(this->_size, other._size);
     std::swap(this->_adj_matrix, other._adj_matrix);
     std::swap(this->_value_set, other._value_set);
+    std::swap(this->_equal, other._equal);
   }
 
   // delete
@@ -133,14 +147,67 @@ public:
     }
   }
 
+  /**
+   * @brief Secondary constructor
+   * @param init the initial value to fill the cube with
+   * @pre (z > 0 && y > 0 && x > 0)
+   * @post cube != nullptr
+   * @throw bad_build_size custom exception throwed if pages, row, column size
+   * is <= 0
+   * @throw std::exception possible exception coming from generic type T
+   * @throw std::bad_alloc possible allocation error coming from new[]
+   */
   void add_arc(const T &value_start, const T &value_destination) {
-    // dobbiamo gestire arco esistente e arco non esistente!
+    if (existsEdge(value_start, value_destination)) {
+      throw arc_already_exists("Error, the arc already exists in the graph!");
+    }
     int index_value_start = retrieve_index_id_node(value_start);
     int index_value_destination = retrieve_index_id_node(value_destination);
     _adj_matrix[index_value_start][index_value_destination] = true;
 #ifndef NDEBUG
     std::cout << "void add_arc(...)" << std::endl;
 #endif
+  }
+
+  void remove_arc(const T &value_start, const T &value_destination) {
+    if (!existsEdge(value_start, value_destination)) {
+      throw arc_not_exists("Error, the arc doesn't exists in the graph!");
+    }
+    int index_value_start = retrieve_index_id_node(value_start);
+    int index_value_destination = retrieve_index_id_node(value_destination);
+    _adj_matrix[index_value_start][index_value_destination] = false;
+#ifndef NDEBUG
+    std::cout << "void delete_arc(...)" << std::endl;
+#endif
+  }
+
+  // Metodo chiesto dal prof
+  bool existsNode(const T &value) const {
+    size_type index = 0;
+    while (index < _size) {
+      if (_equal(_value_set[index], value))
+        return true;
+      ++index;
+    }
+#ifndef NDEBUG
+    std::cout << "bool existsNode(...)" << std::endl;
+#endif
+    return false;
+  }
+
+  // assumo che i nodi id_start_node e id_end_node esistano nel grafo
+  bool existsEdge(const T &id_start_node, const T &id_end_node) const {
+    assert(existsNode(id_start_node) && existsNode(id_end_node));
+    size_type index_id_start_node = retrieve_index_id_node(id_start_node);
+    size_type index_id_end_node = retrieve_index_id_node(id_end_node);
+    if (_adj_matrix[index_id_start_node][index_id_end_node]) {
+      return true;
+    } else {
+#ifndef NDEBUG
+      std::cout << "bool existsEdge(...)" << std::endl;
+#endif
+      return false;
+    }
   }
 
   /*
@@ -218,6 +285,8 @@ public:
    *
    * */
   const size_type retrieve_index_id_node(const T &value) const {
+    // assumiamo che il nodo sia nella lista! va bene la assert in questo caso?
+    assert(existsNode(value));
     size_type index = 0;
     while (index < _size) {
       if (_equal(_value_set[index], value))
@@ -228,20 +297,6 @@ public:
     std::cout << "const int retrieve_index_id_node(...)" << std::endl;
 #endif
     return index;
-  }
-
-  // Metodo chiesto dal prof
-  bool existsNode(const T &value) const {
-    size_type index = 0;
-    while (index < _size) {
-      if (_equal(_value_set[index], value))
-        return true;
-      ++index;
-    }
-#ifndef NDEBUG
-    std::cout << "bool existsNode(...)" << std::endl;
-#endif
-    return false;
   }
 
   /**
@@ -364,6 +419,78 @@ public:
   template <typename U, typename V>
   friend std::ostream &operator<<(std::ostream &os,
                                   const oriented_graph<U, V> &graph);
+
+  class const_iterator {
+    // { }
+  public:
+    typedef std::forward_iterator_tag iterator_category;
+    typedef T value_type;
+    typedef ptrdiff_t difference_type;
+    typedef const T *pointer;
+    typedef const T &reference;
+
+    const_iterator() : _ptr(nullptr) {}
+
+    const_iterator(const const_iterator &other) : _ptr(other._ptr) {}
+
+    const_iterator &operator=(const const_iterator &other) {
+      _ptr = other._ptr;
+      return *this;
+    }
+
+    ~const_iterator() {}
+
+    // Ritorna il dato riferito dall'iteratore (dereferenziamento)
+    reference operator*() const { return *_ptr; }
+
+    // Ritorna il puntatore al dato riferito dall'iteratore
+    pointer operator->() const { return _ptr; }
+
+    // Operatore di iterazione post-incremento
+    const_iterator operator++(int) {
+      const_iterator tmp(*this);
+      ++_ptr;
+      return tmp;
+    }
+
+    // Operatore di iterazione pre-incremento
+    const_iterator &operator++() {
+      ++_ptr;
+      return *this;
+    }
+
+    // Uguaglianza
+    bool operator==(const const_iterator &other) const {
+      return _ptr == other._ptr;
+    }
+
+    // Diversita'
+    bool operator!=(const const_iterator &other) const {
+      return _ptr != other._ptr;
+    }
+
+  private:
+    // Dati membro
+
+    const T *_ptr;
+
+    // La classe container deve essere messa friend dell'iteratore per poter
+    // usare il costruttore di inizializzazione.
+    friend class oriented_graph; // !!! Da cambiare il nome!
+
+    // Costruttore privato di inizializzazione usato dalla classe container
+    // tipicamente nei metodi begin e end
+    const_iterator(const T *p) : _ptr(p) {}
+
+    // !!! Eventuali altri metodi privati
+
+  }; // classe const_iterator
+
+  // Ritorna l'iteratore all'inizio della sequenza dati
+  const_iterator begin() const { return const_iterator(_value_set); }
+
+  // Ritorna l'iteratore alla fine della sequenza dati
+  const_iterator end() const { return const_iterator(_value_set + _size); }
 
 private:
   bool **_adj_matrix;
