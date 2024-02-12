@@ -6,6 +6,7 @@
   File contenente le dichiarazioni/definizioni della classe oriented_graph
   templata
 */
+
 #ifndef ORIENTED_GRAPH
 #define ORIENTED_GRAPH
 #include "arc_already_exists.hpp"
@@ -44,11 +45,7 @@ public:
    * @throw std::bad_alloc possible allocation error coming from new[]
    */
 
-  oriented_graph() : _adj_matrix(nullptr), _id_node_list(nullptr), _size(0) {
-#ifndef NDEBUG
-    std::cout << "oriented_graph()" << std::endl;
-#endif // !NDEBUG
-  }
+  oriented_graph() : _adj_matrix(nullptr), _id_buffer(nullptr), _size(0) {}
 
   /**
       Copy constructor
@@ -56,25 +53,20 @@ public:
       @param other grafo orientato da copiare
   */
   oriented_graph(const oriented_graph &other)
-      : _adj_matrix(nullptr), _id_node_list(nullptr), _size(0) {
-    _id_node_list = new T[other._size];
+      : _adj_matrix(nullptr), _id_buffer(nullptr), _size(0) {
+    _id_buffer = new T[other._size];
     try {
       for (size_type i = 0; i < other._size; ++i) {
-        _id_node_list[i] = other._id_node_list[i];
+        _id_buffer[i] = other._id_buffer[i];
       }
       _adj_matrix = create_matrix(_adj_matrix, other._size);
-      copy_matrix_values(other._adj_matrix, _adj_matrix, other._size);
-
     } catch (...) {
-      clean_set(_id_node_list);
+      clean_id_buffer(_id_buffer);
       clean_matrix(_adj_matrix, _size);
       throw;
     }
+    copy_matrix_values(other._adj_matrix, _adj_matrix, other._size);
     _size = other._size;
-
-#ifndef NDEBUG
-    std::cout << "oriented_graph(const oriented_graph &other)" << std::endl;
-#endif // !NDEBUG
   }
 
   size_type nodes_number() const { return _size; }
@@ -99,9 +91,6 @@ public:
       oriented_graph tmp(other);
       this->swap(tmp);
     }
-#ifndef NDEBUG
-    std::cout << " oriented_graph &operator=(...)" << std::endl;
-#endif
     return *this;
   }
 
@@ -113,7 +102,7 @@ public:
       return false;
 
     for (size_type i = 0; i < _size; ++i) {
-      if (!_equal(_id_node_list[i], other._id_node_list[i]))
+      if (!_equal(_id_buffer[i], other._id_buffer[i]))
         return false;
     }
     for (size_type i = 0; i < _size; ++i) {
@@ -125,66 +114,59 @@ public:
     return true;
   }
 
-  bool operator!=(const oriented_graph &other) const {
-    return !(*this == other);
-  }
+  // bool operator!=(const oriented_graph &other) const {
+  //   return !(*this == other);
+  // }
 
   void swap(oriented_graph &other) {
     std::swap(this->_size, other._size);
     std::swap(this->_adj_matrix, other._adj_matrix);
-    std::swap(this->_id_node_list, other._id_node_list);
+    std::swap(this->_id_buffer, other._id_buffer);
     std::swap(this->_equal, other._equal);
   }
 
   // delete
-  ~oriented_graph() {
+  ~oriented_graph() { clean(); }
+  void clean() {
     clean_matrix(_adj_matrix, _size);
-    clean_set(_id_node_list);
+    clean_id_buffer(_id_buffer);
     _size = 0;
-#ifndef NDEBUG
-    std::cout << "~oriented_graph() " << std::endl;
-#endif // !NDEBUG
   }
 
   // Metodo richiesto dal progetto
   void add_node(const T &value) {
     if (existsNode(value)) {
       throw id_node_already_exists(
-          "Error, the id node already exists inside the set");
+          "Error, the id already exists inside the buffer");
     }
-    // aggiorniamo la capacità della matrice
-    update_adj_matrix();
-
-    // aggiungiamo identificativo al set di valori
-    update_set(value);
-    // aggiornimao numero dei nodi (dimensione matrice)
+    try {
+      update_adj_matrix();
+      update_id_buffer(value);
+    } catch (...) {
+      clean();
+      throw;
+    }
     _size = _size + 1;
-#ifndef NDEBUG
-    std::cout << "void add_node(...)" << std::endl;
-#endif
   }
 
-  void delete_node(const T &value) {
+  void remove_node(const T &value) {
     if (!existsNode(value)) {
-      throw id_node_not_exists("Error, the id node not exists inside the set");
+      throw id_node_not_exists(
+          "Error, the id node not exists inside the buffer");
     }
     size_type index_to_delete = retrieve_index_id_node(value);
-    // caso in cui abbiamo un solo elemento
-    if (_size == 1) {
-      clean_matrix(_adj_matrix, _size);
-      clean_set(_id_node_list);
-      _size = _size - 1;
-    } else {
-      // caso in cui abbiamo più elementi
-      oriented_graph<T, Eql> tmp;
+    oriented_graph tmp;
+    try {
       for (size_type i = 0; i < _size; ++i) {
         if (index_to_delete != i)
-          tmp.add_node(_id_node_list[i]);
+          tmp.add_node(_id_buffer[i]);
       }
-      copy_matrix_with_different_sizes(_adj_matrix, tmp._adj_matrix, _size,
-                                       tmp._size, index_to_delete);
-      *this = tmp;
+    } catch (...) {
+      clean();
     }
+    copy_matrix_with_different_sizes(_adj_matrix, tmp._adj_matrix, _size,
+                                     tmp._size, index_to_delete);
+    *this = tmp;
   }
 
   /**
@@ -204,34 +186,26 @@ public:
     int index_value_start = retrieve_index_id_node(value_start);
     int index_value_destination = retrieve_index_id_node(value_destination);
     _adj_matrix[index_value_start][index_value_destination] = true;
-#ifndef NDEBUG
-    std::cout << "void add_arc(...)" << std::endl;
-#endif
   }
 
   void remove_arc(const T &value_start, const T &value_destination) {
+    assert(existsNode(value_start) && existsNode(value_destination));
     if (!existsEdge(value_start, value_destination)) {
       throw arc_not_exists("Error, the arc doesn't exists in the graph!");
     }
     int index_value_start = retrieve_index_id_node(value_start);
     int index_value_destination = retrieve_index_id_node(value_destination);
     _adj_matrix[index_value_start][index_value_destination] = false;
-#ifndef NDEBUG
-    std::cout << "void delete_arc(...)" << std::endl;
-#endif
   }
 
   // Metodo chiesto dal prof
   bool existsNode(const T &value) const {
     size_type index = 0;
     while (index < _size) {
-      if (_equal(_id_node_list[index], value))
+      if (_equal(_id_buffer[index], value))
         return true;
       ++index;
     }
-#ifndef NDEBUG
-    std::cout << "bool existsNode(...)" << std::endl;
-#endif
     return false;
   }
 
@@ -240,14 +214,11 @@ public:
     assert(existsNode(id_start_node) && existsNode(id_end_node));
     size_type index_id_start_node = retrieve_index_id_node(id_start_node);
     size_type index_id_end_node = retrieve_index_id_node(id_end_node);
-    if (_adj_matrix[index_id_start_node][index_id_end_node]) {
-      return true;
-    } else {
-#ifndef NDEBUG
-      std::cout << "bool existsEdge(...)" << std::endl;
-#endif
-      return false;
-    }
+    return (_adj_matrix[index_id_start_node][index_id_end_node]) ? true : false;
+    // if (_adj_matrix[index_id_start_node][index_id_end_node]) {
+    //   return true;
+    // }
+    // return false;
   }
 
   /*
@@ -288,10 +259,7 @@ public:
       for (size_type colum_source = 0; colum_source < source_size;
            ++colum_source) {
         if (row_source != index_value_to_delete &&
-            colum_source != index_value_to_delete &&
-            row_destination < destination_size &&
-            colum_destination < destination_size) {
-
+            colum_source != index_value_to_delete) {
           matrix_adj_destination[row_destination][colum_destination] =
               matrix_adj_source[row_source][colum_source];
           ++colum_destination;
@@ -302,25 +270,10 @@ public:
         colum_destination = 0;
       } // in questa parte gestire il caso
     }
-#ifndef NDEBUG
-    std::cout << "void copy_matrix_with_different_sizes()" << std::endl;
-#endif
-  }
-
-  // operatore che ritorna un elemento constante nella posizione index di
-  // _id_node_list
-  // valutare se mantenerlo constante o meno il tipo di ritorno
-  // questa funzione non modifica lo stato della classe perciò lo specifichiamo
-  // con la const in fondo
-  // Non so se mantenre questa funzione,effettivamente non viene utilizzata al
-  // momento
-  const T &operator[](const size_type index) const {
-    assert(index < _size);
-    return *(_id_node_list + index);
   }
 
   /*
-   *Si presume che il nodo sia presente nel set
+   *Si presume che il nodo sia presente nel buffer
    *
    *
    * */
@@ -329,55 +282,29 @@ public:
     assert(existsNode(value));
     size_type index = 0;
     while (index < _size) {
-      if (_equal(_id_node_list[index], value))
+      if (_equal(_id_buffer[index], value))
         return index;
       ++index;
     }
-#ifndef NDEBUG
-    std::cout << "const int retrieve_index_id_node(...)" << std::endl;
-#endif
     return index;
   }
 
   /**
-   * Questo metodo aumenta la capacità di value_set contenente gli
+   * Questo metodo aumenta la capacità di  contenente gli
    * identificatori dei nodi da una dimensione n a n+1 inserendo un
-   * nuovo identificativo all'interno di _id_node_list.
+   * nuovo identificativo all'interno di id_buffer.
    *
-   * @param value identificativo del nodo da aggiungere a _id_node_list
+   * @param value identificativo del nodo da aggiungere a id_buffer
    */
-  void update_set(const T &value) {
-    // caso in cui il numero di nodi sia a zero
-    if (_size == 0) {
-      T *tmp = new T[_size + 1];
-
-      // Copiamo i dati di value_set all'interno di tmp
-      for (size_type i = 0; i < _size; ++i) {
-        tmp[i] = _id_node_list[i];
-      }
-
-      // Deallocazione della memoria occupata dall'array originale
-      clean_set(_id_node_list);
-      _id_node_list = tmp;
-      _id_node_list[_size] = value;
-      tmp = nullptr;
-    } else {
-      // Allocazione di memoria per un nuovo array di dimensione size + 1
-      T *tmp = new T[_size + 1];
-
-      // Copiamo i dati di value_set all'interno di tmp
-      for (size_type i = 0; i < _size; ++i) {
-        tmp[i] = _id_node_list[i];
-      }
-      // Deallocazione della memoria occupata dall'array originale
-      clean_set(_id_node_list);
-      _id_node_list = tmp;
-      _id_node_list[_size] = value;
-      tmp = nullptr;
+  void update_id_buffer(const T &value) {
+    T *tmp = new T[_size + 1];
+    for (size_type i = 0; i < _size; ++i) {
+      tmp[i] = _id_buffer[i];
     }
-#ifndef NDEBUG
-    std::cout << "void update_set_capacity(...) " << std::endl;
-#endif
+    clean_id_buffer(_id_buffer);
+    _id_buffer = tmp;
+    _id_buffer[_size] = value;
+    tmp = nullptr;
   }
 
   /**
@@ -386,23 +313,12 @@ public:
    * al suo interno
    */
   void update_adj_matrix() {
-    bool **tmp = nullptr;
-    if (_size == 0) {
-      tmp = create_matrix(tmp, _size + 1);
-      fill_matrix(tmp, _size + 1, false);
-      clean_matrix(_adj_matrix, _size);
-      _adj_matrix = tmp;
-    } else {
-      tmp = create_matrix(tmp, _size + 1);
-      fill_matrix(tmp, _size + 1, false);
-      copy_matrix_values(_adj_matrix, tmp, _size);
-      clean_matrix(_adj_matrix, _size);
-      _adj_matrix = tmp;
-    }
+    bool **tmp = create_matrix(tmp, _size + 1);
+    fill_matrix(tmp, _size + 1, false);
+    copy_matrix_values(_adj_matrix, tmp, _size);
+    clean_matrix(_adj_matrix, _size);
+    _adj_matrix = tmp;
     tmp = nullptr;
-#ifndef NDEBUG
-    std::cout << "void update_matrix(...)" << std::endl;
-#endif
   }
 
   /**
@@ -420,9 +336,6 @@ public:
         destination_matrix[i][j] = source_matrix[i][j];
       }
     }
-#ifndef NDEBUG
-    std::cout << "void copy_matrix_values(...)" << std::endl;
-#endif
   }
 
   bool **create_matrix(bool **matrix, const size_type size) {
@@ -432,10 +345,6 @@ public:
     // creo le colonne
     for (size_type i = 0; i < size; ++i)
       matrix[i] = new bool[size];
-
-#ifndef NDEBUG
-    std::cout << "void create_matrix(...)" << std::endl;
-#endif
     return matrix;
   }
 
@@ -445,15 +354,11 @@ public:
 
     delete[] matrix;
     matrix = nullptr;
-
-#ifndef NDEBUG
-    std::cout << "void delete_matrix(...)" << std::endl;
-#endif
   }
 
-  void clean_set(T *&set) {
-    delete[] set;
-    set = nullptr;
+  void clean_id_buffer(T *&id_buffer) {
+    delete[] id_buffer;
+    id_buffer = nullptr;
   }
 
   void fill_matrix(bool **matrix, const size_type size, const bool value) {
@@ -462,9 +367,6 @@ public:
         matrix[i][j] = value;
       }
     }
-#ifndef NDEBUG
-    std::cout << "void fill_matrix(...)" << std::endl;
-#endif
   }
 
   int size() const { return _size; }
@@ -544,7 +446,7 @@ public:
    * @return const_iterator all'inizio della sequenza degli identificatori dei
    * nodi
    */
-  const_iterator begin() const { return const_iterator(_id_node_list); }
+  const_iterator begin() const { return const_iterator(_id_buffer); }
 
   /**
    * @brief Funzione che ritorna l'iteratore alla fine della sequenza degli
@@ -553,11 +455,11 @@ public:
    * @return const_iterator alla fine della sequenza degli identificatori dei
    * nodi
    */
-  const_iterator end() const { return const_iterator(_id_node_list + _size); }
+  const_iterator end() const { return const_iterator(_id_buffer + _size); }
 
 private:
   bool **_adj_matrix;
-  T *_id_node_list;
+  T *_id_buffer;
   size_type _size;
   Eql _equal;
 };
@@ -574,7 +476,6 @@ template <typename T, typename Eql>
 std::ostream &operator<<(std::ostream &os,
                          const oriented_graph<T, Eql> &graph) {
   os << "Size: " << graph._size << std::endl;
-
   for (typename oriented_graph<T, Eql>::size_type i = 0; i < graph.size();
        ++i) {
     for (typename oriented_graph<T, Eql>::size_type j = 0; j < graph.size();
@@ -583,11 +484,10 @@ std::ostream &operator<<(std::ostream &os,
     }
     os << std::endl;
   }
-
   os << "Nodes: " << std::endl;
   for (typename oriented_graph<T, Eql>::size_type i = 0; i < graph.size();
        ++i) {
-    os << graph._id_node_list[i] << " ";
+    os << graph._id_buffer[i] << " ";
   }
 
   return os;

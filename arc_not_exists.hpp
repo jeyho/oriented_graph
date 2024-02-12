@@ -10,13 +10,13 @@
  * @file id_node_already_exists.hpp
  **/
 
-class arc_not_exists : public std::runtime_error {
+class arc_not_exists : public std::logic_error {
 public:
   /**
    * @brief Constructor, accepts a std::string
    * @param message, the error to be displayed (std::string type)
    */
-  arc_not_exists(const std::string &message) : std::runtime_error(message) {}
+  arc_not_exists(const std::string &message) : std::logic_error(message) {}
 };
 
 #endif
