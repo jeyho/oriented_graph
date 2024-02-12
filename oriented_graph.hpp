@@ -32,14 +32,19 @@
 template <typename T, typename Eql> class oriented_graph {
 public:
   typedef unsigned int size_type;
+
   /**
-      Costruttore di default
+   * @brief Classe oriented_graph
+   * @param init the initial value to fill the cube with
+   * @pre (z > 0 && y > 0 && x > 0)
+   * @post cube != nullptr
+   * @throw bad_build_size custom exception throwed if pages, row, column size
+   * is <= 0
+   * @throw std::exception possible exception coming from generic type T
+   * @throw std::bad_alloc possible allocation error coming from new[]
+   */
 
-      @post _adj_matrix == nullptr
-      @post _value_set == nullptr
-    */
-  oriented_graph() : _adj_matrix(nullptr), _value_set(nullptr), _size(0) {
-
+  oriented_graph() : _adj_matrix(nullptr), _id_node_list(nullptr), _size(0) {
 #ifndef NDEBUG
     std::cout << "oriented_graph()" << std::endl;
 #endif // !NDEBUG
@@ -51,18 +56,17 @@ public:
       @param other grafo orientato da copiare
   */
   oriented_graph(const oriented_graph &other)
-      : _adj_matrix(nullptr), _value_set(nullptr), _size(0) {
-
-    _value_set = new T[other._size];
+      : _adj_matrix(nullptr), _id_node_list(nullptr), _size(0) {
+    _id_node_list = new T[other._size];
     try {
       for (size_type i = 0; i < other._size; ++i) {
-        _value_set[i] = other._value_set[i];
+        _id_node_list[i] = other._id_node_list[i];
       }
       _adj_matrix = create_matrix(_adj_matrix, other._size);
       copy_matrix_values(other._adj_matrix, _adj_matrix, other._size);
 
     } catch (...) {
-      clean_set(_value_set);
+      clean_set(_id_node_list);
       clean_matrix(_adj_matrix, _size);
       throw;
     }
@@ -71,6 +75,18 @@ public:
 #ifndef NDEBUG
     std::cout << "oriented_graph(const oriented_graph &other)" << std::endl;
 #endif // !NDEBUG
+  }
+
+  size_type nodes_number() const { return _size; }
+
+  size_type arcs_number() const {
+    int counter = 0;
+    for (size_type i = 0; i < _size; ++i)
+      for (size_type j = 0; j < _size; ++j) {
+        if (_adj_matrix[i][j] == true)
+          ++counter;
+      }
+    return counter;
   }
 
   /**
@@ -89,17 +105,42 @@ public:
     return *this;
   }
 
+  bool operator==(const oriented_graph &other) const {
+    if (this->_size != other._size)
+      return false;
+
+    if (this->arcs_number() != other.arcs_number())
+      return false;
+
+    for (size_type i = 0; i < _size; ++i) {
+      if (!_equal(_id_node_list[i], other._id_node_list[i]))
+        return false;
+    }
+    for (size_type i = 0; i < _size; ++i) {
+      for (size_type j = 0; i < _size; ++j)
+        if (!_equal(_adj_matrix[i][j], other._adj_matrix[i][j]))
+          return false;
+    }
+
+    return true;
+  }
+
+  bool operator!=(const oriented_graph &other) const {
+    return !(*this == other);
+  }
+
   void swap(oriented_graph &other) {
     std::swap(this->_size, other._size);
     std::swap(this->_adj_matrix, other._adj_matrix);
-    std::swap(this->_value_set, other._value_set);
+    std::swap(this->_id_node_list, other._id_node_list);
     std::swap(this->_equal, other._equal);
   }
 
   // delete
   ~oriented_graph() {
     clean_matrix(_adj_matrix, _size);
-    clean_set(_value_set);
+    clean_set(_id_node_list);
+    _size = 0;
 #ifndef NDEBUG
     std::cout << "~oriented_graph() " << std::endl;
 #endif // !NDEBUG
@@ -131,15 +172,14 @@ public:
     // caso in cui abbiamo un solo elemento
     if (_size == 1) {
       clean_matrix(_adj_matrix, _size);
-      clean_set(_value_set);
+      clean_set(_id_node_list);
       _size = _size - 1;
     } else {
-
       // caso in cui abbiamo più elementi
       oriented_graph<T, Eql> tmp;
       for (size_type i = 0; i < _size; ++i) {
         if (index_to_delete != i)
-          tmp.add_node(_value_set[i]);
+          tmp.add_node(_id_node_list[i]);
       }
       copy_matrix_with_different_sizes(_adj_matrix, tmp._adj_matrix, _size,
                                        tmp._size, index_to_delete);
@@ -185,7 +225,7 @@ public:
   bool existsNode(const T &value) const {
     size_type index = 0;
     while (index < _size) {
-      if (_equal(_value_set[index], value))
+      if (_equal(_id_node_list[index], value))
         return true;
       ++index;
     }
@@ -268,7 +308,7 @@ public:
   }
 
   // operatore che ritorna un elemento constante nella posizione index di
-  // _value_set
+  // _id_node_list
   // valutare se mantenerlo constante o meno il tipo di ritorno
   // questa funzione non modifica lo stato della classe perciò lo specifichiamo
   // con la const in fondo
@@ -276,7 +316,7 @@ public:
   // momento
   const T &operator[](const size_type index) const {
     assert(index < _size);
-    return *(_value_set + index);
+    return *(_id_node_list + index);
   }
 
   /*
@@ -289,7 +329,7 @@ public:
     assert(existsNode(value));
     size_type index = 0;
     while (index < _size) {
-      if (_equal(_value_set[index], value))
+      if (_equal(_id_node_list[index], value))
         return index;
       ++index;
     }
@@ -302,28 +342,38 @@ public:
   /**
    * Questo metodo aumenta la capacità di value_set contenente gli
    * identificatori dei nodi da una dimensione n a n+1 inserendo un
-   * nuovo identificativo all'interno di _value_set.
+   * nuovo identificativo all'interno di _id_node_list.
    *
-   * @param value identificativo del nodo da aggiungere a _value_set
+   * @param value identificativo del nodo da aggiungere a _id_node_list
    */
   void update_set(const T &value) {
     // caso in cui il numero di nodi sia a zero
     if (_size == 0) {
-      _value_set = new T[_size + 1];
-      _value_set[_size] = value;
+      T *tmp = new T[_size + 1];
+
+      // Copiamo i dati di value_set all'interno di tmp
+      for (size_type i = 0; i < _size; ++i) {
+        tmp[i] = _id_node_list[i];
+      }
+
+      // Deallocazione della memoria occupata dall'array originale
+      clean_set(_id_node_list);
+      _id_node_list = tmp;
+      _id_node_list[_size] = value;
+      tmp = nullptr;
     } else {
       // Allocazione di memoria per un nuovo array di dimensione size + 1
       T *tmp = new T[_size + 1];
 
       // Copiamo i dati di value_set all'interno di tmp
       for (size_type i = 0; i < _size; ++i) {
-        tmp[i] = _value_set[i];
+        tmp[i] = _id_node_list[i];
       }
       // Deallocazione della memoria occupata dall'array originale
-      clean_set(_value_set);
-      _value_set = tmp;
-      _value_set[_size] = value;
-      // tmp = nullptr;
+      clean_set(_id_node_list);
+      _id_node_list = tmp;
+      _id_node_list[_size] = value;
+      tmp = nullptr;
     }
 #ifndef NDEBUG
     std::cout << "void update_set_capacity(...) " << std::endl;
@@ -336,17 +386,20 @@ public:
    * al suo interno
    */
   void update_adj_matrix() {
+    bool **tmp = nullptr;
     if (_size == 0) {
-      _adj_matrix = create_matrix(_adj_matrix, _size + 1);
-      fill_matrix(_adj_matrix, _size + 1, false);
+      tmp = create_matrix(tmp, _size + 1);
+      fill_matrix(tmp, _size + 1, false);
+      clean_matrix(_adj_matrix, _size);
+      _adj_matrix = tmp;
     } else {
-      bool **tmp = create_matrix(tmp, _size + 1);
+      tmp = create_matrix(tmp, _size + 1);
       fill_matrix(tmp, _size + 1, false);
       copy_matrix_values(_adj_matrix, tmp, _size);
       clean_matrix(_adj_matrix, _size);
       _adj_matrix = tmp;
     }
-    // tmp = nullptr;
+    tmp = nullptr;
 #ifndef NDEBUG
     std::cout << "void update_matrix(...)" << std::endl;
 #endif
@@ -482,32 +535,46 @@ public:
     // tipicamente nei metodi begin e end
     const_iterator(const T *p) : _ptr(p) {}
 
-    // !!! Eventuali altri metodi privati
-
   }; // classe const_iterator
 
-  // Ritorna l'iteratore all'inizio della sequenza dati
-  const_iterator begin() const { return const_iterator(_value_set); }
+  /**
+   * @brief Funzione che ritorna l'iteratore all'inizio della sequenza degli
+   * identificatori dei nodi
+   *
+   * @return const_iterator all'inizio della sequenza degli identificatori dei
+   * nodi
+   */
+  const_iterator begin() const { return const_iterator(_id_node_list); }
 
-  // Ritorna l'iteratore alla fine della sequenza dati
-  const_iterator end() const { return const_iterator(_value_set + _size); }
+  /**
+   * @brief Funzione che ritorna l'iteratore alla fine della sequenza degli
+   * identificatori dei nodi
+   *
+   * @return const_iterator alla fine della sequenza degli identificatori dei
+   * nodi
+   */
+  const_iterator end() const { return const_iterator(_id_node_list + _size); }
 
 private:
   bool **_adj_matrix;
-  T *_value_set;
+  T *_id_node_list;
   size_type _size;
   Eql _equal;
-
-  // dovremmo inserire la lista degli archi?
-  // da inserire possibili funtori
 };
+
+/**
+ * @brief Ridefinizione dell'operatore di stream per l'invio del contenuto di
+ * oriented_graph sullo stream in output
+ *
+ * @param os Stream di output
+ * @param graph oriented_graph da inviare
+ * @return Reference allo stream di output
+ */
 template <typename T, typename Eql>
 std::ostream &operator<<(std::ostream &os,
                          const oriented_graph<T, Eql> &graph) {
-  // Stampa della dimensione
-  os << "Dimensione: " << graph._size << std::endl;
+  os << "Size: " << graph._size << std::endl;
 
-  // Stampa della matrice
   for (typename oriented_graph<T, Eql>::size_type i = 0; i < graph.size();
        ++i) {
     for (typename oriented_graph<T, Eql>::size_type j = 0; j < graph.size();
@@ -517,11 +584,10 @@ std::ostream &operator<<(std::ostream &os,
     os << std::endl;
   }
 
-  // Stampa del set di nodi
-  os << "Insieme dei nodi: " << std::endl;
+  os << "Nodes: " << std::endl;
   for (typename oriented_graph<T, Eql>::size_type i = 0; i < graph.size();
        ++i) {
-    os << graph._value_set[i] << " ";
+    os << graph._id_node_list[i] << " ";
   }
 
   return os;
