@@ -21,37 +21,19 @@
 
 /**
  * @brief Classe oriented_graph
- * @param init the initial value to fill the cube with
- * @pre (z > 0 && y > 0 && x > 0)
- * @post cube != nullptr
- * @throw bad_build_size custom exception throwed if pages, row, column size
- * is <= 0
- * @throw std::exception possible exception coming from generic type T
- * @throw std::bad_alloc possible allocation error coming from new[]
  */
-
 template <typename T, typename Eql> class oriented_graph {
 public:
   typedef unsigned int size_type;
 
   /**
-   * @brief Classe oriented_graph
-   * @param init the initial value to fill the cube with
-   * @pre (z > 0 && y > 0 && x > 0)
-   * @post cube != nullptr
-   * @throw bad_build_size custom exception throwed if pages, row, column size
-   * is <= 0
-   * @throw std::exception possible exception coming from generic type T
-   * @throw std::bad_alloc possible allocation error coming from new[]
+   * @brief Default constructor
    */
-
   oriented_graph() : _adj_matrix(nullptr), _id_buffer(nullptr), _size(0) {}
 
   /**
-      Copy constructor
-
-      @param other grafo orientato da copiare
-  */
+   * @brief Copy constructor
+   */
   oriented_graph(const oriented_graph &other)
       : _adj_matrix(nullptr), _id_buffer(nullptr), _size(0) {
     _id_buffer = new T[other._size];
@@ -61,14 +43,16 @@ public:
       }
       _adj_matrix = create_matrix(_adj_matrix, other._size);
     } catch (...) {
-      clean_id_buffer(_id_buffer);
-      clean_matrix(_adj_matrix, _size);
+      clear();
       throw;
     }
     copy_matrix_values(other._adj_matrix, _adj_matrix, other._size);
     _size = other._size;
   }
 
+  /**
+   * @brief Nodes number
+   */
   size_type nodes_number() const { return _size; }
 
   size_type arcs_number() const {
@@ -82,10 +66,8 @@ public:
   }
 
   /**
-        Operatore assegnamento
-
-        @param other grafo orientato da copiare
-    */
+   * @brief Operatore assegnamento
+   */
   oriented_graph &operator=(const oriented_graph &other) {
     if (this != &other) {
       oriented_graph tmp(other);
@@ -94,7 +76,11 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Operatore di confronto ==
+   */
   bool operator==(const oriented_graph &other) const {
+
     if (this->_size != other._size)
       return false;
 
@@ -105,8 +91,9 @@ public:
       if (!_equal(_id_buffer[i], other._id_buffer[i]))
         return false;
     }
+
     for (size_type i = 0; i < _size; ++i) {
-      for (size_type j = 0; i < _size; ++j)
+      for (size_type j = 0; j < _size; ++j)
         if (!_equal(_adj_matrix[i][j], other._adj_matrix[i][j]))
           return false;
     }
@@ -114,10 +101,9 @@ public:
     return true;
   }
 
-  // bool operator!=(const oriented_graph &other) const {
-  //   return !(*this == other);
-  // }
-
+  /**
+   * @brief Operatore swap della classe oriented_graph
+   */
   void swap(oriented_graph &other) {
     std::swap(this->_size, other._size);
     std::swap(this->_adj_matrix, other._adj_matrix);
@@ -125,15 +111,21 @@ public:
     std::swap(this->_equal, other._equal);
   }
 
-  // delete
-  ~oriented_graph() { clean(); }
-  void clean() {
+  /**
+   *@brief Distruttore della classe oriented_graph
+   *Il distruttore chiama la funzione clear che permette di deallocare le
+   * risorse
+   */
+  ~oriented_graph() { clear(); }
+  void clear() {
     clean_matrix(_adj_matrix, _size);
     clean_id_buffer(_id_buffer);
     _size = 0;
   }
 
-  // Metodo richiesto dal progetto
+  /**
+   *@brief Funzione che permette di aggiungere un nodo alla volta  al grafo
+   */
   void add_node(const T &value) {
     if (existsNode(value)) {
       throw id_node_already_exists(
@@ -143,12 +135,15 @@ public:
       update_adj_matrix();
       update_id_buffer(value);
     } catch (...) {
-      clean();
+      clear();
       throw;
     }
     _size = _size + 1;
   }
 
+  /**
+   *@brief Funzione che permette di rimuovere un nodo alla volta  al grafo
+   */
   void remove_node(const T &value) {
     if (!existsNode(value)) {
       throw id_node_not_exists(
@@ -162,22 +157,17 @@ public:
           tmp.add_node(_id_buffer[i]);
       }
     } catch (...) {
-      clean();
+      tmp.clear();
+      clear();
     }
-    copy_matrix_with_different_sizes(_adj_matrix, tmp._adj_matrix, _size,
-                                     tmp._size, index_to_delete);
+    if (tmp.size() >= 1)
+      copy_matrix_with_different_sizes(_adj_matrix, tmp._adj_matrix, _size,
+                                       tmp._size, index_to_delete);
     *this = tmp;
   }
 
   /**
-   * @brief Secondary constructor
-   * @param init the initial value to fill the cube with
-   * @pre (z > 0 && y > 0 && x > 0)
-   * @post cube != nullptr
-   * @throw bad_build_size custom exception throwed if pages, row, column size
-   * is <= 0
-   * @throw std::exception possible exception coming from generic type T
-   * @throw std::bad_alloc possible allocation error coming from new[]
+   *@brief Funzione che permette di aggiungere un archo alla volta al grafo
    */
   void add_arc(const T &value_start, const T &value_destination) {
     if (existsEdge(value_start, value_destination)) {
@@ -188,6 +178,9 @@ public:
     _adj_matrix[index_value_start][index_value_destination] = true;
   }
 
+  /**
+   *@brief Funzione che permette di rimuovere  un archo alla volta al grafo
+   */
   void remove_arc(const T &value_start, const T &value_destination) {
     assert(existsNode(value_start) && existsNode(value_destination));
     if (!existsEdge(value_start, value_destination)) {
@@ -198,7 +191,10 @@ public:
     _adj_matrix[index_value_start][index_value_destination] = false;
   }
 
-  // Metodo chiesto dal prof
+  /**
+   *@brief Dato l'identificatore di un nodo, la funzione determina se tale nodo
+   *esiste all'interno del grafo
+   */
   bool existsNode(const T &value) const {
     size_type index = 0;
     while (index < _size) {
@@ -209,57 +205,55 @@ public:
     return false;
   }
 
-  // assumo che i nodi id_start_node e id_end_node esistano nel grafo
+  /*
+   * @brief Dato l'identificatore del nodo sorgente e l'identificatore del  nodo
+   * di destinazione, la funzione determina se esiste il corrispondente arco
+   * all'interno del grafo
+   * */
   bool existsEdge(const T &id_start_node, const T &id_end_node) const {
     assert(existsNode(id_start_node) && existsNode(id_end_node));
     size_type index_id_start_node = retrieve_index_id_node(id_start_node);
     size_type index_id_end_node = retrieve_index_id_node(id_end_node);
     return (_adj_matrix[index_id_start_node][index_id_end_node]) ? true : false;
-    // if (_adj_matrix[index_id_start_node][index_id_end_node]) {
-    //   return true;
-    // }
-    // return false;
   }
 
   /*
-   * la seguente funzione copia i valori dalla matrice di adiacenza di origine
-   * alla matrice di adiacenza di destinazione in seguito a una cancellazione di
-   * un nodo la cui posizione all'interno della matrice viene passato tramite
-   * index_value_to_delete. La funzione gestisce dimensioni diverse per le due
-   * matrici.
+   * @brief Copia i valori dalla matrice di adiacenza matrix_adj_source di
+   * dimensione n nella matrice di adiacenza di destinazione
+   * matrix_adj_destination di dimensione n-1. La copia esclude la riga e la
+   * colonna di matrix_adj_source corrispondente a index_id_to_delete.
    *
-   * @param matrix_adj_source La matrice di adiacenza di origine da cui copiare
-   * i valori.
-   *
-   * @param matrix_adj_destination La matrice di adiacenza di destinazione in
-   * cui inserire i valori copiati.
-   *
-   * @param source_size La dimensione della matrice di adiacenza di origine.
-   *
-   * @param destination_size La dimensione della matrice di adiacenza di
+   * @param matrix_adj_source Matrice di adiacenza sorgente
+   * @param matrix_adj_destination Matrice di adiacenza di destinazione
+   * @param source_size Dimensione della matrice di adiacenza di origine.
+   * @param destination_size  Dimensione della matrice di adiacenza di
    * destinazione.
+   * @param index_to_delete Indice della riga e della colonna da escludere
+   * durante la copia.
    *
-   * @param index_to_delete L'indice della riga e della colonna da eliminare
-   * dalla copia.
+   * @pre destination_size >= 1
+   * @pre source_size >= 2
+   * @pre destination_size == source_size - 1
    *
-   * Pre condizioni Come pre-condizione, si presume che entrambi
-   * siano già stati istanziati in precedenza Si presume che matrix_adj_source
-   * abbia dimensione n Si presume che matrix_adj_destination abbia  dimensione
-   * n-1
-   *
+   * @post matrix_adj_destination contiene gli stessi valori di
+   * matrix_adj_source escludendo la riga e la colonna di
+   * matrix_adj_source corrispondente all'indice index_id_to_delete
    * */
   void copy_matrix_with_different_sizes(bool **matrix_adj_source,
                                         bool **matrix_adj_destination,
                                         const size_type source_size,
                                         const size_type destination_size,
-                                        size_type index_value_to_delete) {
+                                        size_type index_id_to_delete) {
+    assert(destination_size >= 1);
+    assert(source_size >= 2);
+    assert(destination_size == source_size - 1);
     size_type row_destination = 0;
     size_type colum_destination = 0;
     for (size_type row_source = 0; row_source < source_size; ++row_source) {
       for (size_type colum_source = 0; colum_source < source_size;
            ++colum_source) {
-        if (row_source != index_value_to_delete &&
-            colum_source != index_value_to_delete) {
+        if (row_source != index_id_to_delete &&
+            colum_source != index_id_to_delete) {
           matrix_adj_destination[row_destination][colum_destination] =
               matrix_adj_source[row_source][colum_source];
           ++colum_destination;
@@ -268,14 +262,17 @@ public:
       if (colum_destination >= destination_size) {
         ++row_destination;
         colum_destination = 0;
-      } // in questa parte gestire il caso
+      }
     }
   }
 
   /*
-   *Si presume che il nodo sia presente nel buffer
+   * @brief Recupera l'indice dell'indentificativo value all'interno di
+   * _id_buffer
    *
-   *
+   * @param value Il valore dell'identificativo del nodo da cercare
+   * @return Indice dell'identificativo del nodo
+   * @pre existsNode(value)==true
    * */
   const size_type retrieve_index_id_node(const T &value) const {
     // assumiamo che il nodo sia nella lista! va bene la assert in questo caso?
@@ -289,17 +286,24 @@ public:
     return index;
   }
 
-  /**
-   * Questo metodo aumenta la capacità di  contenente gli
-   * identificatori dei nodi da una dimensione n a n+1 inserendo un
-   * nuovo identificativo all'interno di id_buffer.
+  /*
+   * @brief Aggiorna la dimensione e il contenuto di _id_buffer aggiungendo un
+   * nuovo identificatore in coda
    *
    * @param value identificativo del nodo da aggiungere a id_buffer
-   */
+   *
+   * @post TODO
+   * */
   void update_id_buffer(const T &value) {
     T *tmp = new T[_size + 1];
-    for (size_type i = 0; i < _size; ++i) {
-      tmp[i] = _id_buffer[i];
+    try {
+      for (size_type i = 0; i < _size; ++i) {
+        tmp[i] = _id_buffer[i];
+      }
+    } catch (...) {
+      clean_id_buffer(tmp);
+      clear();
+      throw;
     }
     clean_id_buffer(_id_buffer);
     _id_buffer = tmp;
